@@ -1,0 +1,17 @@
+LIBRARY SCCP
+EXPORTS
+
+SCLS_Settime
+SCLS_DVR_Init
+SCLS_DVR_Login
+SCLS_DVR_SetDVRMessCallBack
+SCLS_DVR_Logout
+SCLS_DVR_GetBigImage
+SCLS_DVR_GetBinaryImage
+SCLS_DVR_GetSmallImage
+SCLS_DVR_GetPlateNo
+SCLS_DVR_ForceCapture
+SCLS_DVR_RealPlay
+SCLS_DVR_StopRealPlay
+SCLS_DVR_StartRecord
+SCLS_DVR_StopRecord
