@@ -93,6 +93,8 @@
     <ClInclude Include="CameraModule\ResultListManager.h" />
     <ClInclude Include="CameraModule\ThreadSafeList.h" />
     <ClInclude Include="coredump\MiniDumper.h" />
+    <ClInclude Include="libAVI\avilib.h" />
+    <ClInclude Include="libAVI\cAviLib.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SCCP.h" />
     <ClInclude Include="SCCP_commenDef.h" />
@@ -117,6 +119,11 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
       </PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="libAVI\avilib.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="libAVI\cAviLib.cpp" />
     <ClCompile Include="SCCP.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

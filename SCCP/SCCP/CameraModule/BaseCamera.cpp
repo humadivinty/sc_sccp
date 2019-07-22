@@ -39,6 +39,7 @@ m_iIndex(0),
 m_bLogEnable(true),
 m_bSynTime(true),
 m_bDeviceTypeNew(false),
+m_bFirstH264Frame(true),
 m_strIP("")
 {
     //合成图片初始化
@@ -64,6 +65,7 @@ m_iIndex(0),
 m_bLogEnable(true),
 m_bSynTime(true),
 m_bDeviceTypeNew(false),
+m_bFirstH264Frame(true),
 m_strIP(chIP)
 {
     //合成图片初始化
@@ -79,6 +81,8 @@ BaseCamera::~BaseCamera()
 {        
     InterruptionConnection();
     DisConnectCamera();
+    StopSaveAviFile(0);
+    StopSaveAviFile(1);
     //m_strIP.clear();
 
     m_hWnd = NULL;
@@ -130,6 +134,44 @@ void BaseCamera::WriteHistoryInfo(SaveModeInfo& SaveInfo)
     //sprintf_s(chTemp, sizeof(chTemp), "%d", SaveInfo.iIndex);
     sprintf_s(chTemp, sizeof(chTemp), "%d", SaveInfo.iIndex);
     WritePrivateProfileStringA(m_strIP.c_str(), "Index", chTemp, iniFileName);
+}
+
+int BaseCamera::handleH264Frame(DWORD dwVedioFlag, 
+    DWORD dwVideoType,
+    DWORD dwWidth, 
+    DWORD dwHeight, 
+    DWORD64 dw64TimeMS, 
+    PBYTE pbVideoData,
+    DWORD dwVideoDataLen, 
+    LPCSTR szVideoExtInfo)
+{
+    if (dwVedioFlag == H264_FLAG_INVAIL)
+        return 0;
+
+    if (dwVedioFlag == H264_FLAG_HISTROY_END)
+    {
+        if (!m_264AviLib.IsNULL())
+        {
+            m_264AviLib.close();
+        }
+        return 0;
+    }
+
+    LONG isIFrame = 0;
+    if (VIDEO_TYPE_H264_NORMAL_I == dwVideoType 
+        || VIDEO_TYPE_H264_HISTORY_I == dwVideoType)
+    {
+        isIFrame = 1;
+    }
+
+    LONG isHistory = 0;
+    if (VIDEO_TYPE_H264_HISTORY_I == dwVideoType
+        || VIDEO_TYPE_H264_HISTORY_P == dwVideoType)
+    {
+        isHistory = 1;
+    }
+
+    return SaveH264Frame(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, dw64TimeMS, isHistory);
 }
 
 bool BaseCamera::SaveImgToDisk(char* chImgPath, BYTE* pImgData, DWORD dwImgSize)
@@ -1639,6 +1681,130 @@ bool BaseCamera::CheckDeviceIfOldVersion()
         }
     }
     return bVersion;
+}
+
+bool BaseCamera::StartToSaveAviFile(int iStreamID, const char* fileName)
+{
+    if (m_hHvHandle == NULL)
+    {
+        WriteFormatLog("StartToSaveAviFile, m_hHvHandle == NULL, failed.");
+        return false;
+    }
+    StopSaveAviFile(iStreamID);
+    DWORD64 iBeginTime = 0;
+    DWORD64 iEndTime = 0;
+    DWORD RecvFlag = H264_RECV_FLAG_REALTIME;
+
+    setAviFilePath(fileName);
+
+    HRESULT hr = HVAPI_StartRecvH264Video(
+        m_hHvHandle,
+        (PVOID)HVAPI_CALLBACK_H264_EX,
+        (PVOID)this,
+        iStreamID,
+        iBeginTime,
+        iEndTime,
+        RecvFlag);
+    if (hr == S_OK)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool BaseCamera::StopSaveAviFile(int iStreamID)
+{
+    if (m_hHvHandle == NULL)
+    {
+        WriteFormatLog("StopSaveAviFile, m_hHvHandle == NULL, failed.");
+        return false;
+    }
+
+    DWORD64 iBeginTime = 0;
+    DWORD64 iEndTime = 0;
+    DWORD RecvFlag = H264_RECV_FLAG_REALTIME;
+
+    HRESULT hr = HVAPI_StartRecvH264Video(
+        m_hHvHandle,
+        NULL,
+        (PVOID)this,
+        iStreamID,
+        iBeginTime,
+        iEndTime,
+        RecvFlag);
+
+    hr = HVAPI_StopRecvH264Video(m_hHvHandle);
+    if (hr == S_OK)
+    {
+        m_bFirstH264Frame = true;
+        if (!m_264AviLib.IsNULL())
+        {
+            m_264AviLib.close();
+        }
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+int BaseCamera::SaveH264Frame(BYTE* H264FrameData,
+    LONG DataSize,
+    LONG Width, 
+    LONG Height,
+    LONG isIFrame,
+    LONGLONG FrameTime,
+    LONG IsHistory)
+{
+    if (NULL == getAviPath())
+        return 0;
+
+    if (m_bFirstH264Frame)
+    {
+        if (!m_264AviLib.IsNULL())
+        {
+            m_264AviLib.close();
+        }
+
+        m_264AviLib.setAviInfo(getAviPath(), Width, Height, 25, "H264");
+    }
+    if (0 == m_264AviLib.writeFrame((char*)H264FrameData, DataSize, isIFrame))
+    {
+        m_bFirstH264Frame = false;
+    }
+    return 0;
+}
+
+void BaseCamera::setAviFilePath(const char* chPath)
+{
+    if (NULL == chPath
+        || NULL == strstr(chPath, "avi"))
+    {
+        return;
+    }
+
+    EnterCriticalSection(&m_csFuncCallback);
+    sprintf_s(m_chAviFilePath, sizeof(m_chAviFilePath), "%s", chPath);
+    LeaveCriticalSection(&m_csFuncCallback);
+}
+
+char* BaseCamera::getAviPath()
+{
+    char* pValue = NULL;
+    static char s_chPath[256] = {0};
+    memset(s_chPath, '\0', sizeof(s_chPath));
+    EnterCriticalSection(&m_csFuncCallback);
+    if (strlen(m_chAviFilePath) > 0)
+    {
+        sprintf_s(s_chPath, sizeof(s_chPath), "%s", m_chAviFilePath);        
+        pValue =  s_chPath;
+    }
+    LeaveCriticalSection(&m_csFuncCallback);
+    return pValue;
 }
 
 unsigned int __stdcall Camera_StatusCheckThread(LPVOID lpParam)

@@ -22,7 +22,7 @@ public:
      * @param framebuff     数据缓冲区
      * @param buffSize      数据长
      * @param keyframe      是否关键帧
-     * @return 1 成功  0 失败
+     * @return 0 成功  1 失败
      */
     int writeFrame(char *framebuff,int buffSize,int keyframe);
 

@@ -188,6 +188,23 @@ public:
     //获取设备的硬件版本信息
     bool GetHardWareInfo(BasicInfo& info);
     bool CheckDeviceIfOldVersion();
+
+    //视频保存
+    bool StartToSaveAviFile(int iStreamID, const char* fileName);
+    bool StopSaveAviFile(int iStreamID);
+
+private:
+    int SaveH264Frame(
+        BYTE* H264FrameData,
+        LONG DataSize, 
+        LONG Width, 
+        LONG Height,
+        LONG isIFrame,
+        LONGLONG FrameTime, 
+        LONG IsHistory);
+
+    void setAviFilePath(const char* chPath);
+    char* getAviPath();
 protected:
     void* m_hHvHandle;
     //void* m_hWnd;
@@ -204,10 +221,12 @@ protected:
     bool m_bLogEnable;
     bool m_bSynTime;
     bool m_bDeviceTypeNew;
+    bool m_bFirstH264Frame;
 
     char m_chDeviceID[3];
     char m_chStationID[7];
     char m_chLaneID[3];
+    char m_chAviFilePath[256];
 
     std::string m_strIP;
     std::string m_strDeviceID;
@@ -219,7 +238,7 @@ protected:
 
     CRITICAL_SECTION m_csLog;    
 
-    //CAviLib m_264AviLib;
+    CAviLib m_264AviLib;
 
     void ReadHistoryInfo();
     void WriteHistoryInfo(SaveModeInfo& SaveInfo);
@@ -385,6 +404,44 @@ public:
         LPCSTR szImageExtInfo) = 0;
 
     virtual void CheckStatus() = 0;
+
+    static INT HVAPI_CALLBACK_H264_EX(
+        PVOID pUserData,
+        DWORD dwVedioFlag,
+        DWORD dwVideoType,
+        DWORD dwWidth,
+        DWORD dwHeight,
+        DWORD64 dw64TimeMS,
+        PBYTE pbVideoData,
+        DWORD dwVideoDataLen,
+        LPCSTR szVideoExtInfo
+        )
+    {
+        if (pUserData == NULL)
+            return 0;
+
+        BaseCamera* pThis = (BaseCamera*)pUserData;
+        return pThis->handleH264Frame(
+            dwVedioFlag,
+            dwVideoType,
+            dwWidth,
+            dwHeight,
+            dw64TimeMS,
+            pbVideoData,
+            dwVideoDataLen,
+            szVideoExtInfo);
+    };
+
+    int handleH264Frame(
+        DWORD dwVedioFlag,
+        DWORD dwVideoType,
+        DWORD dwWidth,
+        DWORD dwHeight,
+        DWORD64 dw64TimeMS,
+        PBYTE pbVideoData,
+        DWORD dwVideoDataLen,
+        LPCSTR szVideoExtInfo
+        );
 };
 
 #endif

@@ -1,4 +1,5 @@
-﻿#include "CAviLib.h"
+﻿#include "stdafx.h"
+#include "CAviLib.h"
 
 extern "C"{
 	#include "avilib.h"

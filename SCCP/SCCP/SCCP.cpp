@@ -432,12 +432,52 @@ SCCP_API BOOL DLL_SPEC SCLS_DVR_StopRealPlay(LONG lHandle)
 
 SCCP_API BOOL DLL_SPEC SCLS_DVR_StartRecord(LONG lHandle, char *sFileName)
 {
-    WRITE_LOG("return false directory");
-    return FALSE;
+    WRITE_LOG(" begin, nHandle = %d, sFileName = %s.", lHandle, sFileName);
+    if (NULL == sFileName 
+        || NULL ==strstr(sFileName, "avi"))
+    {
+        WRITE_LOG("input file name is invalid.");
+        return FALSE;
+    }
+    if (!DeviceListManager::GetInstance()->FindIfExsit(lHandle))
+    {
+        WRITE_LOG("camera id is not found.");
+        return FALSE;
+    }
+    Camera6467_plate* pCamera = (Camera6467_plate*)DeviceListManager::GetInstance()->GetDeviceById(lHandle);
+    if (pCamera != NULL)
+    {
+        pCamera->StartToSaveAviFile(0, sFileName);
+
+        WRITE_LOG("end , save video success.");
+        return TRUE;
+    }
+    else
+    {
+        WRITE_LOG("end ,the camera of nHandle is invalid.");
+        return FALSE;
+    }
 }
 
 SCCP_API BOOL DLL_SPEC SCLS_DVR_StopRecord(LONG lHandle)
 {
-    WRITE_LOG("return false directory");
-    return FALSE;
+    WRITE_LOG(" begin, nHandle = %d.", lHandle);
+    if (!DeviceListManager::GetInstance()->FindIfExsit(lHandle))
+    {
+        WRITE_LOG("camera id is not found.");
+        return FALSE;
+    }
+    Camera6467_plate* pCamera = (Camera6467_plate*)DeviceListManager::GetInstance()->GetDeviceById(lHandle);
+    if (pCamera != NULL)
+    {
+        pCamera->StopSaveAviFile(0);
+
+        WRITE_LOG("end ,StopSaveAviFile success.");
+        return TRUE;
+    }
+    else
+    {
+        WRITE_LOG("end ,the camera of nHandle is invalid.");
+        return FALSE;
+    }
 }
