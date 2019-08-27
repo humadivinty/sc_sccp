@@ -93,8 +93,10 @@
     <ClInclude Include="CameraModule\ResultListManager.h" />
     <ClInclude Include="CameraModule\ThreadSafeList.h" />
     <ClInclude Include="coredump\MiniDumper.h" />
+    <ClInclude Include="CusH264Struct.h" />
     <ClInclude Include="libAVI\avilib.h" />
     <ClInclude Include="libAVI\cAviLib.h" />
+    <ClInclude Include="MyH264Saver.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SCCP.h" />
     <ClInclude Include="SCCP_commenDef.h" />
@@ -111,6 +113,7 @@
     <ClCompile Include="CameraModule\DeviceListManager.cpp" />
     <ClCompile Include="CameraModule\ResultListManager.cpp" />
     <ClCompile Include="coredump\MiniDumper.cpp" />
+    <ClCompile Include="CusH264Struct.cpp" />
     <ClCompile Include="dllmain.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -124,6 +127,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="libAVI\cAviLib.cpp" />
+    <ClCompile Include="MyH264Saver.cpp" />
     <ClCompile Include="SCCP.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

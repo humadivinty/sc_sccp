@@ -14,6 +14,7 @@
 #define ERROR_CODE_BUFFER_NOTENOUGH -4
 
 extern int g_iVideoChannelID;
+extern int g_iVideoAdvanceTime;
 
 
 SCCP_API BOOL DLL_SPEC SCLS_Settime(LONG lHandle, NET_DVR_TIME CurTime)
@@ -447,7 +448,7 @@ SCCP_API BOOL DLL_SPEC SCLS_DVR_StartRecord(LONG lHandle, char *sFileName)
     Camera6467_plate* pCamera = (Camera6467_plate*)DeviceListManager::GetInstance()->GetDeviceById(lHandle);
     if (pCamera != NULL)
     {
-        pCamera->StartToSaveAviFile(0, sFileName);
+        pCamera->StartToSaveAviFile(0, sFileName, GetTickCount64() - g_iVideoAdvanceTime*1000);
 
         WRITE_LOG("end , save video success.");
         return TRUE;

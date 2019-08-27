@@ -9,6 +9,7 @@ using namespace Gdiplus;
 #pragma  comment(lib, "gdiplus.lib")
 
 #include "libAVI/cAviLib.h"
+#include "MyH264Saver.h"
 
 #define CMD_DEL_VEH_HEAD 1
 #define CMD_GET_VEH_LENGTH 2
@@ -190,7 +191,10 @@ public:
     bool CheckDeviceIfOldVersion();
 
     // ”∆µ±£¥Ê
-    bool StartToSaveAviFile(int iStreamID, const char* fileName);
+    bool SetH264Callback(int iStreamID, DWORD64 dwBeginTime, DWORD64 dwEndTime, DWORD RecvFlag);
+    bool SetH264CallbackNULL(int iStreamID, DWORD RecvFlag);
+
+    bool StartToSaveAviFile(int iStreamID, const char* fileName, DWORD64 beginTimeTick = 0);
     bool StopSaveAviFile(int iStreamID);
 
 private:
@@ -199,9 +203,9 @@ private:
         LONG DataSize, 
         LONG Width, 
         LONG Height,
-        LONG isIFrame,
+        int isIFrame,
         LONGLONG FrameTime, 
-        LONG IsHistory);
+        int IsHistory);
 
     void setAviFilePath(const char* chPath);
     char* getAviPath();
@@ -239,6 +243,7 @@ protected:
     CRITICAL_SECTION m_csLog;    
 
     CAviLib m_264AviLib;
+    MyH264Saver m_h264Saver;
 
     void ReadHistoryInfo();
     void WriteHistoryInfo(SaveModeInfo& SaveInfo);

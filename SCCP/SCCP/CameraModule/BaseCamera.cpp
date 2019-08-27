@@ -79,6 +79,7 @@ m_strIP(chIP)
 
 BaseCamera::~BaseCamera()
 {        
+    SetH264CallbackNULL(0, H264_RECV_FLAG_REALTIME);
     InterruptionConnection();
     DisConnectCamera();
     StopSaveAviFile(0);
@@ -170,8 +171,16 @@ int BaseCamera::handleH264Frame(DWORD dwVedioFlag,
     {
         isHistory = 1;
     }
-
-    return SaveH264Frame(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, dw64TimeMS, isHistory);
+    //char chLog[256] = {0};
+    //sprintf_s(chLog, sizeof(chLog), "handleH264Frame:: dw64TimeMS =%I64d , currentTicket =%I64d \n", dw64TimeMS, GetTickCount64());
+    //OutputDebugStringA(chLog);
+    //return SaveH264Frame(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, dw64TimeMS, isHistory);
+    CustH264Struct* pH264Data = new CustH264Struct(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, isHistory, GetTickCount64());
+    if (!m_h264Saver.addDataStruct(pH264Data))
+    {
+        SAFE_DELETE_OBJ(pH264Data);
+    }
+    return 0;
 }
 
 bool BaseCamera::SaveImgToDisk(char* chImgPath, BYTE* pImgData, DWORD dwImgSize)
@@ -483,6 +492,15 @@ int BaseCamera::ConnectToCamera()
     //sprintf_s(chCommand, "DownloadRecord,BeginTime[%s],Index[%d],Enable[%d],EndTime[%s],DataInfo[%d]", m_SaveModelInfo.chBeginTime, m_SaveModelInfo.iIndex, m_SaveModelInfo.iSafeModeEnable, m_SaveModelInfo.chEndTime, m_SaveModelInfo.iDataType);
 
     WriteLog(chCommand);
+
+    if (!SetH264Callback(0, 0, 0, H264_RECV_FLAG_REALTIME))
+    {
+        WriteLog("ConnectToCamera:: SetH264Callback failed.");
+    }
+    else
+    {
+        WriteLog("ConnectToCamera:: SetH264Callback success.");
+    }
 
     if ((HVAPI_SetCallBackEx(m_hHvHandle, (PVOID)RecordInfoBeginCallBack, this, 0, CALLBACK_TYPE_RECORD_INFOBEGIN, NULL) != S_OK) ||
         (HVAPI_SetCallBackEx(m_hHvHandle, (PVOID)RecordInfoEndCallBack, this, 0, CALLBACK_TYPE_RECORD_INFOEND, NULL) != S_OK) ||
@@ -1683,27 +1701,21 @@ bool BaseCamera::CheckDeviceIfOldVersion()
     return bVersion;
 }
 
-bool BaseCamera::StartToSaveAviFile(int iStreamID, const char* fileName)
+bool BaseCamera::SetH264Callback(int iStreamID, DWORD64 dwBeginTime, DWORD64 dwEndTime, DWORD RecvFlag)
 {
     if (m_hHvHandle == NULL)
     {
-        WriteFormatLog("StartToSaveAviFile, m_hHvHandle == NULL, failed.");
+        WriteFormatLog("SetH264Callback, m_hHvHandle == NULL, failed.");
         return false;
     }
-    StopSaveAviFile(iStreamID);
-    DWORD64 iBeginTime = 0;
-    DWORD64 iEndTime = 0;
-    DWORD RecvFlag = H264_RECV_FLAG_REALTIME;
-
-    setAviFilePath(fileName);
 
     HRESULT hr = HVAPI_StartRecvH264Video(
         m_hHvHandle,
         (PVOID)HVAPI_CALLBACK_H264_EX,
         (PVOID)this,
         iStreamID,
-        iBeginTime,
-        iEndTime,
+        dwBeginTime,
+        dwEndTime,
         RecvFlag);
     if (hr == S_OK)
     {
@@ -1713,6 +1725,42 @@ bool BaseCamera::StartToSaveAviFile(int iStreamID, const char* fileName)
     {
         return false;
     }
+}
+
+bool BaseCamera::SetH264CallbackNULL(int iStreamID, DWORD RecvFlag)
+{
+    if (m_hHvHandle == NULL)
+    {
+        WriteFormatLog("SetH264Callback, m_hHvHandle == NULL, failed.");
+        return false;
+    }
+
+    HRESULT hr = HVAPI_StartRecvH264Video(
+        m_hHvHandle,
+        NULL,
+        (PVOID)this,
+        iStreamID,
+        0,
+        0,
+        RecvFlag);
+    if (hr == S_OK)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool BaseCamera::StartToSaveAviFile(int iStreamID, const char* fileName, DWORD64 beginTimeTick)
+{
+    if (m_hHvHandle == NULL)
+    {
+        WriteFormatLog("StartToSaveAviFile, m_hHvHandle == NULL, failed.");
+        return false;
+    }
+    m_h264Saver.StartSaveH264(beginTimeTick, fileName);
 }
 
 bool BaseCamera::StopSaveAviFile(int iStreamID)
@@ -1722,43 +1770,16 @@ bool BaseCamera::StopSaveAviFile(int iStreamID)
         WriteFormatLog("StopSaveAviFile, m_hHvHandle == NULL, failed.");
         return false;
     }
-
-    DWORD64 iBeginTime = 0;
-    DWORD64 iEndTime = 0;
-    DWORD RecvFlag = H264_RECV_FLAG_REALTIME;
-
-    HRESULT hr = HVAPI_StartRecvH264Video(
-        m_hHvHandle,
-        NULL,
-        (PVOID)this,
-        iStreamID,
-        iBeginTime,
-        iEndTime,
-        RecvFlag);
-
-    hr = HVAPI_StopRecvH264Video(m_hHvHandle);
-    if (hr == S_OK)
-    {
-        m_bFirstH264Frame = true;
-        if (!m_264AviLib.IsNULL())
-        {
-            m_264AviLib.close();
-        }
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return m_h264Saver.StopSaveH264();
 }
 
 int BaseCamera::SaveH264Frame(BYTE* H264FrameData,
     LONG DataSize,
     LONG Width, 
     LONG Height,
-    LONG isIFrame,
+    int isIFrame,
     LONGLONG FrameTime,
-    LONG IsHistory)
+    int IsHistory)
 {
     if (NULL == getAviPath())
         return 0;

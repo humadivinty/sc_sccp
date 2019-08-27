@@ -84,6 +84,12 @@
     <ClInclude Include="libAVI\cAviLib.h">
       <Filter>libAVI</Filter>
     </ClInclude>
+    <ClInclude Include="CusH264Struct.h">
+      <Filter>CameraModule</Filter>
+    </ClInclude>
+    <ClInclude Include="MyH264Saver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -133,6 +139,12 @@
     </ClCompile>
     <ClCompile Include="libAVI\cAviLib.cpp">
       <Filter>libAVI</Filter>
+    </ClCompile>
+    <ClCompile Include="CusH264Struct.cpp">
+      <Filter>CameraModule</Filter>
+    </ClCompile>
+    <ClCompile Include="MyH264Saver.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

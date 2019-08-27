@@ -4,6 +4,7 @@
 
 bool  g_bLogEnable = false;
 int g_iVideoChannelID = 0;
+int g_iVideoAdvanceTime = 0;
 CMiniDumper g_MiniDumper(true);
 
 bool g_ReadConfig();
@@ -40,6 +41,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         TID = GetCurrentThreadId();
         sprintf_s(chLog, "Video_car  DLL_PROCESS_DETACH current thread ID = %lu\n", TID);
         OutputDebugStringA(chLog);
+        g_WriteConfig();
 		break;
 	}
 	return TRUE;
@@ -71,6 +73,10 @@ bool g_ReadConfig()
     //g_iBackupCount = GetPrivateProfileIntA("Log", "BackupCount", 1, iniFileName);
 
     g_iVideoChannelID = GetPrivateProfileIntA("Video", "channelID", 0, iniFileName);
+
+    int iAdvanceTime = GetPrivateProfileIntA("Video", "advanceTime", 5, iniFileName);
+    g_iVideoAdvanceTime = iAdvanceTime >= 0 ? iAdvanceTime : 5;
+
     return true;
 }
 
@@ -97,4 +103,8 @@ void g_WriteConfig()
     memset(chTemp, 0, sizeof(chTemp));
     sprintf_s(chTemp, "%d", g_iVideoChannelID);
     WritePrivateProfileStringA("Video", "channelID", chTemp, iniFileName);
+
+    memset(chTemp, 0, sizeof(chTemp));
+    sprintf_s(chTemp, "%d", g_iVideoAdvanceTime);
+    WritePrivateProfileStringA("Video", "advanceTime", chTemp, iniFileName);
 }
