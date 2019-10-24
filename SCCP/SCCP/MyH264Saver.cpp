@@ -7,11 +7,14 @@ MyH264Saver::MyH264Saver():
 m_bExit(false),
 m_iSaveH264Flag(0),
 m_iTimeFlag(0),
+m_iTmpTime(0),
+m_lastvideoidx(-1),
 m_bFirstSave(false),
 //m_pLocker(NULL),
 m_hThreadSaveH264(NULL)
 {
     InitializeCriticalSection(&m_Locker);
+	InitializeCriticalSection(&m_DataListLocker);
 
     m_hThreadSaveH264 = CreateThread(NULL, 0, H264DataProceesor, this, 0, NULL);
 }
@@ -24,7 +27,7 @@ MyH264Saver::~MyH264Saver()
     Tool_SafeCloseThread(m_hThreadSaveH264);
 
     DeleteCriticalSection(&m_Locker);
-
+	DeleteCriticalSection(&m_DataListLocker);
 }
 
 bool MyH264Saver::addDataStruct(CustH264Struct* pDataStruct)
@@ -33,12 +36,18 @@ bool MyH264Saver::addDataStruct(CustH264Struct* pDataStruct)
     {
         return false;
     }
+	//char buf[256] = { 0 };
+	//sprintf_s(buf, "%ld\n", pDataStruct->m_llFrameTime);
+	//OutputDebugString(buf);
+
     std::shared_ptr<CustH264Struct> pData = std::shared_ptr<CustH264Struct>(pDataStruct);
-    if (m_lDataStructList.size() > 400)
+	EnterCriticalSection(&m_DataListLocker);
+    if (m_lDataStructList.size() > 250)
     {
         m_lDataStructList.pop_front();
     }
     m_lDataStructList.push_back(pData);
+	LeaveCriticalSection(&m_DataListLocker);
 
     return true;
 }
@@ -49,6 +58,7 @@ bool MyH264Saver::StartSaveH264(INT64 beginTimeStamp, const char* pchFilePath)
     SetIfFirstSave(true);
     SetTimeFlag(beginTimeStamp);
     SetSavePath(pchFilePath, strlen(pchFilePath));
+	m_lastvideoidx = -1;
     return true;
 }
 
@@ -76,12 +86,15 @@ DWORD MyH264Saver::processH264Data()
     while (!GetIfExit())
     {
         //Sleep(50);
+		EnterCriticalSection(&m_DataListLocker);
         if (m_lDataStructList.size() <= 0)
         {
+			LeaveCriticalSection(&m_DataListLocker);
             Sleep(50);
             continue;
         }
-
+		LeaveCriticalSection(&m_DataListLocker);
+		char buf[256] = { 0 };
         iSaveFlag = GetSaveFlag();
         std::shared_ptr<CustH264Struct > pData = nullptr;
         switch (iSaveFlag)
@@ -90,12 +103,41 @@ DWORD MyH264Saver::processH264Data()
             Sleep(10);
             break;
         case SAVING_FLAG_SAVING:
-            pData = m_lDataStructList.front();
+			EnterCriticalSection(&m_DataListLocker);
+			for (auto r = m_lDataStructList.begin(); r != m_lDataStructList.end(); )
+			{
+				if ((*r)->m_llFrameTime < GetTimeFlag())
+				{
+					r = m_lDataStructList.erase(r);
+				}
+				else
+				{
+					if ((*r)->m_llFrameTime > m_iTmpTime || ((*r)->m_llFrameTime == m_iTmpTime &&((*r)->index == m_lastvideoidx + 1 || ((*r)->index == 0 && m_lastvideoidx == 400))))
+					{
+						pData = (*r);
+						m_iTmpTime = (*r)->m_llFrameTime;
+						m_lastvideoidx = (*r)->index;
+						break;
+					}
+					r++;
+				}
+			}
+
+           // pData = m_lDataStructList.front();
+			LeaveCriticalSection(&m_DataListLocker);
             if (pData == nullptr)
             {
                 break;
             }
-            m_lDataStructList.pop_front();
+
+			sprintf_s(buf, "%ld, ", pData->m_llFrameTime);
+			OutputDebugString(buf);
+			sprintf_s(buf, "index = %d\n",  pData->index);
+			OutputDebugString(buf);
+
+			//EnterCriticalSection(&m_DataListLocker);
+			//m_lDataStructList.pop_front();
+			//LeaveCriticalSection(&m_DataListLocker);
             iVideoWidth = pData->m_iWidth;
             iVideoHeight = pData->m_iHeight;
             if (GetIfFirstSave())
@@ -121,6 +163,7 @@ DWORD MyH264Saver::processH264Data()
         case SAVING_FLAG_SHUT_DOWN:
             if (!m_264AviLib.IsNULL())
             {
+				m_iTmpTime = 0;
                 m_264AviLib.close();
                 SetSaveFlag(SAVING_FLAG_NOT_SAVE);
             }
@@ -169,6 +212,7 @@ void MyH264Saver::SetTimeFlag(INT64 iValue)
 {
     EnterCriticalSection(&m_Locker);
     m_iTimeFlag = iValue;
+	m_iTmpTime = iValue;
     LeaveCriticalSection(&m_Locker);
 }
 

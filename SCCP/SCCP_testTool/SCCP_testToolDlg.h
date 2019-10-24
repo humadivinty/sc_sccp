@@ -5,7 +5,8 @@
 #pragma once
 #include "afxdtctl.h"
 #include <memory>
-
+#include "../SCCP/SCCP_commenDef.h"
+#include "../SCCP/SCCP.h"
 
 // CSCCP_testToolDlg ¶Ô»°¿ò
 class CSCCP_testToolDlg : public CDialogEx
@@ -58,6 +59,8 @@ private:
 public:
 
     static void __stdcall ResultCallBack(int iCommand, char* pInfo);
+    static void __stdcall CBFun_Result_Callback(LONG iCommand, NET_DVR_PLATE_RESULT *pInfo);
+    static void __stdcall CBFun_Extrat_Callbackt(int iCommand, T_EXTRAVLPINFO * pInfo);
 
     
 private:
@@ -66,4 +69,6 @@ private:
 
     CDateTimeCtrl m_dateTimeDate;
     CDateTimeCtrl m_dateTime_time;
+public:
+    afx_msg void OnBnClickedButtonSetextracallback();
 };

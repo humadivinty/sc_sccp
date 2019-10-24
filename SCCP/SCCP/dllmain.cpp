@@ -4,8 +4,8 @@
 
 bool  g_bLogEnable = false;
 int g_iVideoChannelID = 0;
-int g_iVideoAdvanceTime = 0;
-CMiniDumper g_MiniDumper(true);
+int g_iVideoAdvanceTime = 5;
+//CMiniDumper g_MiniDumper(true);
 
 bool g_ReadConfig();
 void g_WriteConfig();
@@ -74,8 +74,8 @@ bool g_ReadConfig()
 
     g_iVideoChannelID = GetPrivateProfileIntA("Video", "channelID", 0, iniFileName);
 
-    int iAdvanceTime = GetPrivateProfileIntA("Video", "advanceTime", 5, iniFileName);
-    g_iVideoAdvanceTime = iAdvanceTime >= 0 ? iAdvanceTime : 5;
+    //int iAdvanceTime = GetPrivateProfileIntA("Video", "advanceTime", 5, iniFileName);
+    //g_iVideoAdvanceTime = iAdvanceTime >= 0 ? iAdvanceTime : 5;
 
     return true;
 }
@@ -104,7 +104,7 @@ void g_WriteConfig()
     sprintf_s(chTemp, "%d", g_iVideoChannelID);
     WritePrivateProfileStringA("Video", "channelID", chTemp, iniFileName);
 
-    memset(chTemp, 0, sizeof(chTemp));
-    sprintf_s(chTemp, "%d", g_iVideoAdvanceTime);
-    WritePrivateProfileStringA("Video", "advanceTime", chTemp, iniFileName);
+    //memset(chTemp, 0, sizeof(chTemp));
+    //sprintf_s(chTemp, "%d", g_iVideoAdvanceTime);
+    //WritePrivateProfileStringA("Video", "advanceTime", chTemp, iniFileName);
 }

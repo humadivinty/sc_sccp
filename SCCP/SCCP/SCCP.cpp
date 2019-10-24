@@ -13,9 +13,13 @@
 #define ERROR_CODE_DISCONNECT -102
 #define ERROR_CODE_BUFFER_NOTENOUGH -4
 
+#pragma data_seg("Shared")  
 extern int g_iVideoChannelID;
 extern int g_iVideoAdvanceTime;
+DeviceListManager* pDeviceManager = DeviceListManager::GetInstance();
+#pragma data_seg()
 
+#pragma comment(linker,"/section:Shared,rws")
 
 SCCP_API BOOL DLL_SPEC SCLS_Settime(LONG lHandle, NET_DVR_TIME CurTime)
 {
@@ -60,9 +64,10 @@ SCCP_API BOOL DLL_SPEC SCLS_Settime(LONG lHandle, NET_DVR_TIME CurTime)
     }
 }
 
-SCCP_API BOOL DLL_SPEC SCLS_DVR_Init()
+SCCP_API BOOL DLL_SPEC SCLS_DVR_Init(int nPreRecordTime)
 {
-    WRITE_LOG("return true directory");
+    WRITE_LOG("begin, nPreRecordTime = %d, return true directory, ", nPreRecordTime);
+    g_iVideoAdvanceTime = nPreRecordTime;
     return TRUE;
 }
 
@@ -102,6 +107,7 @@ SCCP_API LONG DLL_SPEC SCLS_DVR_Login(char *sIP, WORD wPort, char *sUserName, ch
                 {
                     WRITE_LOG("connect to camera failed.");
                 }
+				pCamera->SetReConStatus(true);
                 DeviceListManager::GetInstance()->AddOneDevice(i, pCamera);
 
                 iHandle = i;
@@ -115,7 +121,8 @@ SCCP_API LONG DLL_SPEC SCLS_DVR_Login(char *sIP, WORD wPort, char *sUserName, ch
     return iHandle;
 }
 
-SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(MessageCallback fMessCallBack, LONG lHandle)
+//SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(MessageCallback fMessCallBack, LONG lHandle)
+SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(CBFun_GetRegResult fMessCallBack, LONG lHandle)
 {
     WRITE_LOG(" begin, nHandle = %d, MessageCallback = %p, .", lHandle, fMessCallBack);
     if (!DeviceListManager::GetInstance()->FindIfExsit(lHandle))
@@ -128,6 +135,29 @@ SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(MessageCallback fMessCallBack
     {
         pCamera->SetResultCallback(fMessCallBack, NULL);
         WRITE_LOG("SetResultCallBack success.");
+        return TRUE;
+    }
+    else
+    {
+        WRITE_LOG(" end ,the camera of nHandle is invalid.");
+        return FALSE;
+    }
+}
+
+SCCP_API BOOL DLL_SPEC SCLS_DVR_SetExtraResultCallBack(CBFun_GetExtraRegResult pFunc, LONG lHandle)
+{
+    WRITE_LOG(" begin, nHandle = %d, CBFun_GetRegResult = %p.", lHandle, pFunc);
+    if (!DeviceListManager::GetInstance()->FindIfExsit(lHandle))
+    {
+        WRITE_LOG("camera id is not found.");
+        return FALSE;
+    }
+
+    Camera6467_plate* pCamera = (Camera6467_plate*)DeviceListManager::GetInstance()->GetDeviceById(lHandle);
+    if (pCamera != NULL)
+    {
+        pCamera->SetResultExtraInfoCallback(pFunc, NULL);
+        WRITE_LOG("SetResultExtraInfoCallback success.");
         return TRUE;
     }
     else
@@ -448,7 +478,7 @@ SCCP_API BOOL DLL_SPEC SCLS_DVR_StartRecord(LONG lHandle, char *sFileName)
     Camera6467_plate* pCamera = (Camera6467_plate*)DeviceListManager::GetInstance()->GetDeviceById(lHandle);
     if (pCamera != NULL)
     {
-        pCamera->StartToSaveAviFile(0, sFileName, GetTickCount64() - g_iVideoAdvanceTime*1000);
+        pCamera->StartToSaveAviFile(0, sFileName, /*GetTickCount64() - */g_iVideoAdvanceTime*1000);
 
         WRITE_LOG("end , save video success.");
         return TRUE;

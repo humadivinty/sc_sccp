@@ -49,7 +49,13 @@ private:
 
     char m_chFilePath[256];
 
-    TemplateThreadSafeList<std::shared_ptr<CustH264Struct > > m_lDataStructList;
+	INT64 m_iTmpTime;
+	int m_lastvideoidx;
+
+    //TemplateThreadSafeList<std::shared_ptr<CustH264Struct > > m_lDataStructList;
+	std::deque<std::shared_ptr<CustH264Struct > > m_lDataStructList;
+	CRITICAL_SECTION m_DataListLocker;
+
     CRITICAL_SECTION m_Locker;
     HANDLE m_hThreadSaveH264;
     CAviLib m_264AviLib;

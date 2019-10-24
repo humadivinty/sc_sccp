@@ -6,8 +6,7 @@
 #include "SCCP_testTool.h"
 #include "SCCP_testToolDlg.h"
 #include "afxdialogex.h"
-#include "../SCCP/SCCP_commenDef.h"
-#include "../SCCP/SCCP.h"
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -93,6 +92,7 @@ BEGIN_MESSAGE_MAP(CSCCP_testToolDlg, CDialogEx)
     ON_BN_CLICKED(IDC_BUTTON_SCLS_DVR_StopRealPlay, &CSCCP_testToolDlg::OnBnClickedButtonSclsDvrStoprealplay)
     ON_BN_CLICKED(IDC_BUTTON_SCLS_DVR_StartRecord, &CSCCP_testToolDlg::OnBnClickedButtonSclsDvrStartrecord)
     ON_BN_CLICKED(IDC_BUTTON_SCLS_DVR_StopRecord, &CSCCP_testToolDlg::OnBnClickedButtonSclsDvrStoprecord)
+    ON_BN_CLICKED(IDC_BUTTON_SetExtraCallback, &CSCCP_testToolDlg::OnBnClickedButtonSetextracallback)
 END_MESSAGE_MAP()
 
 
@@ -132,6 +132,7 @@ BOOL CSCCP_testToolDlg::OnInitDialog()
     //m_pbImageData = new unsigned char[MAX_IMAGE_LENGTH];
     //memset(m_pbImageData, 0, MAX_IMAGE_LENGTH);
     pDlg = this;
+    GetDlgItem(IDC_EDIT_AdvanceVideoTime)->SetWindowTextA("5");
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -190,10 +191,13 @@ HCURSOR CSCCP_testToolDlg::OnQueryDragIcon()
 void CSCCP_testToolDlg::OnBnClickedButtonSclsDvrInit()
 {
     // TODO:  在此添加控件通知处理程序代码
-    BOOL bret = SCLS_DVR_Init();
+    char chTemp[256] = {0};
+    GetItemText(IDC_EDIT_AdvanceVideoTime, chTemp, sizeof(chTemp));
+
+    BOOL bret = SCLS_DVR_Init(atoi(chTemp));
     
     CString strLog;
-    strLog.Format("SCLS_DVR_Init  = %d ", bret);
+    strLog.Format("SCLS_DVR_Init(%s)  = %d ", chTemp, bret);
     ShowMessage(strLog);
 }
 
@@ -264,7 +268,8 @@ void CSCCP_testToolDlg::OnBnClickedButtonSclsSettime()
 void CSCCP_testToolDlg::OnBnClickedButtonSclsDvrSetdvrmesscallback()
 {
     // TODO:  在此添加控件通知处理程序代码
-    BOOL bRet = SCLS_DVR_SetDVRMessCallBack(ResultCallBack, m_iDeviceID);
+    //BOOL bRet = SCLS_DVR_SetDVRMessCallBack(ResultCallBack, m_iDeviceID);
+    BOOL bRet = SCLS_DVR_SetDVRMessCallBack(CBFun_Result_Callback, m_iDeviceID);
 
     CString strLog;
     strLog.Format("SCLS_DVR_SetDVRMessCallBack(%p)  = %d ", &ResultCallBack, bRet);
@@ -494,6 +499,80 @@ void __stdcall CSCCP_testToolDlg::ResultCallBack(int iCommand, char* pInfo)
     }
 }
 
+void __stdcall CSCCP_testToolDlg::CBFun_Result_Callback(LONG iCommand, NET_DVR_PLATE_RESULT *pInfo)
+{
+    char chFilePath[256] = { 0 };
+    if (pDlg)
+    {
+        CString strLog;
+        NET_DVR_PLATE_RESULT* pResult = pInfo;
+        strLog.Format("ResultCallBack: byDriveChan = %d, PlateNO:%s", pResult->byDriveChan, pResult->sLicense);
+        ((CSCCP_testToolDlg*)pDlg)->ShowMessage(strLog);
+
+        strLog.Format("ResultCallBack: dwPicLen = %lu, dwPicPlateLen:%lu, dwBinPicLen = %lu", pResult->dwPicLen, pResult->dwPicPlateLen, pResult->dwBinPicLen);
+        ((CSCCP_testToolDlg*)pDlg)->ShowMessage(strLog);
+
+        strLog.Format("ResultCallBack: pBuffer1= %p, pBuffer2= %p,pBuffer3= %p", pResult->pBuffer1, pResult->pBuffer2, pResult->pBuffer3);
+        ((CSCCP_testToolDlg*)pDlg)->ShowMessage(strLog);
+
+        char FileName[MAX_PATH];
+        GetModuleFileNameA(NULL, FileName, MAX_PATH - 1);
+        PathRemoveFileSpecA(FileName);
+
+        SYSTEMTIME systime;
+        GetLocalTime(&systime);//本地时间
+        sprintf_s(chFilePath, sizeof(chFilePath), "%s\\ResultBuffer\\%s\\",
+            FileName,
+            pResult->vlpId);
+
+        char chFileName[256] = { 0 };
+        sprintf_s(chFileName, sizeof(chFileName), "%s\\Pic.jpg", chFilePath);
+        Tool_SaveFileToPath(chFileName, pResult->pBuffer1, pResult->dwPicLen);
+
+        memset(chFileName, '\0', sizeof(chFileName));
+        sprintf_s(chFileName, sizeof(chFileName), "%s\\PicPlate.bmp", chFilePath);
+        Tool_SaveFileToPath(chFileName, pResult->pBuffer2, pResult->dwPicPlateLen);
+
+        memset(chFileName, '\0', sizeof(chFileName));
+        sprintf_s(chFileName, sizeof(chFileName), "%s\\BinPic.bin", chFilePath);
+        Tool_SaveFileToPath(chFileName, pResult->pBuffer3, pResult->dwBinPicLen);
+    }
+}
+
+void __stdcall CSCCP_testToolDlg::CBFun_Extrat_Callbackt(int iCommand, T_EXTRAVLPINFO * pInfo)
+{
+    char chFilePath[256] = { 0 };
+    if (pDlg)
+    {
+        T_EXTRAVLPINFO* pResult = pInfo;
+
+        CString strLog;
+        strLog.Format("CBFun_Extrat_Callbackt, vlpId = %s, type = %d,  length = %d", pResult->vlpId, pResult->vlpExtraType, pResult->imageLength);
+        ((CSCCP_testToolDlg*)pDlg)->ShowMessage(strLog);
+
+        char FileName[MAX_PATH];
+        GetModuleFileNameA(NULL, FileName, MAX_PATH - 1);
+        PathRemoveFileSpecA(FileName);
+
+        SYSTEMTIME systime;
+        GetLocalTime(&systime);//本地时间
+        sprintf_s(chFilePath, sizeof(chFilePath), "%s\\ResultBuffer\\%s\\",
+            FileName,
+            pResult->vlpId);
+
+        char chFileName[256] = { 0 };
+        if (pResult->vlpExtraType == 1 || pResult->vlpExtraType == 2)
+        {
+            sprintf_s(chFileName, sizeof(chFileName), "%s\\type-%d.jpg", chFilePath, pResult->vlpExtraType);
+        }
+        else
+        {
+            sprintf_s(chFileName, sizeof(chFileName), "%s\\type-%d.txt", chFilePath, pResult->vlpExtraType);
+        }        
+        Tool_SaveFileToPath(chFileName, pResult->image, pResult->imageLength);
+    }
+}
+
 bool Tool_SaveFileToPath(const char* szPath, void* fileData, size_t fileSize)
 {
     //printf("begin Tool_SaveFileToPath");
@@ -572,4 +651,15 @@ bool Tool_SaveFileToPath(const char* szPath, void* fileData, size_t fileSize)
 
     //printf("end SaveImgToDisk");
     return bRet;
+}
+
+
+void CSCCP_testToolDlg::OnBnClickedButtonSetextracallback()
+{
+    // TODO:  在此添加控件通知处理程序代码
+    BOOL bRet = SCLS_DVR_SetExtraResultCallBack(CBFun_Extrat_Callbackt, m_iDeviceID);
+
+    CString strLog;
+    strLog.Format("SCLS_DVR_SetExtraResultCallBack(%p)  = %d ", &CBFun_Extrat_Callbackt, bRet);
+    ShowMessage(strLog);
 }

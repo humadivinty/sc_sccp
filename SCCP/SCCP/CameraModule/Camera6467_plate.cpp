@@ -57,13 +57,14 @@ m_hFirstWinHandle(NULL),
 m_hSecondWinHandle(NULL),
 m_hPlayFirstH264(NULL),
 m_hPlaySecondh264(NULL),
-m_hStatusCheckThread(NULL)
+m_hStatusCheckThread(NULL),
+m_hSendResultThread(NULL)
 {
     ReadConfig();
     InitializeCriticalSection(&m_csResult);
 
     m_hStatusCheckThread = (HANDLE)_beginthreadex(NULL, 0, Camera_StatusCheckThread, this, 0, NULL);
-
+    m_hSendResultThread = (HANDLE)_beginthreadex(NULL, 0, s_SendResultThreadFunc, this, 0, NULL);
 }
 
 
@@ -96,7 +97,8 @@ m_hFirstWinHandle(NULL),
 m_hSecondWinHandle(NULL),
 m_hPlayFirstH264(NULL),
 m_hPlaySecondh264(NULL),
-m_hStatusCheckThread(NULL)
+m_hStatusCheckThread(NULL),
+m_hSendResultThread(NULL)
 {
     //SetConnectStatus_Callback(NULL, NULL, 10);
     ReadConfig();
@@ -104,7 +106,7 @@ m_hStatusCheckThread(NULL)
     InitializeCriticalSection(&m_csResult);
 
     m_hStatusCheckThread = (HANDLE)_beginthreadex(NULL, 0, Camera_StatusCheckThread, this, 0, NULL);
-
+    m_hSendResultThread = (HANDLE)_beginthreadex(NULL, 0, s_SendResultThreadFunc, this, 0, NULL);
 }
 
 Camera6467_plate::~Camera6467_plate()
@@ -112,7 +114,9 @@ Camera6467_plate::~Camera6467_plate()
     SetCheckThreadExit(true);
     SetConnectStatus_Callback(NULL, NULL, 10);
     SetResultCallback(NULL, NULL);
+    SetResultExtraInfoCallback(NULL, NULL);
     Tool_SafeCloseThread(m_hStatusCheckThread);
+    Tool_SafeCloseThread(m_hSendResultThread);
 
     InterruptionConnection();
 #ifdef USE_VIDEO
@@ -146,14 +150,14 @@ void Camera6467_plate::AnalysisAppendXML(CameraResult* CamResult)
         //    tm.GetHour(), 
         //    tm.GetMinute(),
         //    tm.GetSecond());
-        sprintf_s(CamResult->chPlateTime, sizeof(CamResult->chPlateTime), "%04d%02d%02d%02d%02d%02d%03d",
+        sprintf_s(CamResult->chPlateTime, sizeof(CamResult->chPlateTime), "%04d%02d%02d%02d%02d%02d",
             tm.GetYear(),
             tm.GetMonth(),
             tm.GetDay(),
             tm.GetHour(),
             tm.GetMinute(),
-            tm.GetSecond(),
-            CamResult->dw64TimeMS%1000);
+            tm.GetSecond()
+            /*CamResult->dw64TimeMS%1000*/);
     }
     else
     {
@@ -167,14 +171,14 @@ void Camera6467_plate::AnalysisAppendXML(CameraResult* CamResult)
         //    st.wHour, 
         //    st.wMinute, 
         //    st.wSecond);
-        sprintf_s(CamResult->chPlateTime, sizeof(CamResult->chPlateTime), "%04d%02d%02d%02d%02d%02d%03d",
+        sprintf_s(CamResult->chPlateTime, sizeof(CamResult->chPlateTime), "%04d%02d%02d%02d%02d%02d",
             st.wYear,
             st.wMonth,
             st.wDay,
             st.wHour,
             st.wMinute,
-            st.wSecond,
-            st.wMilliseconds);
+            st.wSecond
+            /*st.wMilliseconds*/);
     }
 
     char chTemp[BUFFERLENTH] = { 0 };
@@ -541,46 +545,165 @@ void Camera6467_plate::ReadConfig()
 
 void Camera6467_plate::SendResultByCallback()
 {
+    //EnterCriticalSection(&m_csFuncCallback);
+    //if ( NULL != g_pFunc_Result )
+    //{
+    //    //LeaveCriticalSection(&m_csFuncCallback);
+    //    WriteFormatLog("SendResultByCallback, begin call back func %p.", g_pFunc_Result);
+
+    //    NET_DVR_PLATE_RESULT  plateResult;
+    //    EnterCriticalSection(&m_csResult);
+    //    plateResult.byDriveChan = m_BufferResult->iLaneNo;
+    //    plateResult.dwPicLen = m_BufferResult->CIMG_LastSnapshot.dwImgSize;
+    //    plateResult.dwPicPlateLen = m_BufferResult->CIMG_PlateImage.dwImgSize;
+    //    plateResult.dwBinPicLen = m_BufferResult->CIMG_BinImage.dwImgSize;
+    //    plateResult.pBuffer1 = m_BufferResult->CIMG_LastSnapshot.pbImgData;
+    //    plateResult.pBuffer2 = m_BufferResult->CIMG_PlateImage.pbImgData;
+    //    plateResult.pBuffer3 = m_BufferResult->CIMG_BinImage.pbImgData;
+    //    memset(plateResult.sLicense, '\0', sizeof(plateResult.sLicense));
+    //    if (NULL != strstr(m_BufferResult->chPlateNO, "ÎÞ"))
+    //    {
+    //        sprintf_s(plateResult.sLicense, sizeof(plateResult.sLicense), "Î´¼ì²â");
+    //    }
+    //    else
+    //    {
+    //        sprintf_s(plateResult.sLicense, sizeof(plateResult.sLicense), "%s", m_BufferResult->chPlateNO);
+    //    }
+
+    //    WriteFormatLog("begin call back.", g_pFunc_Result);
+    //    ((MessageCallback)g_pFunc_Result)(0, (char*)(&plateResult));
+    //    WriteFormatLog("finish call back.", g_pFunc_Result);
+
+    //    LeaveCriticalSection(&m_csResult);
+
+    //    WriteFormatLog("SendResultByCallback, finish.");
+    //}
+    //else
+    //{        
+    //    WriteFormatLog("SendResultByCallback, the call back function is NULL.");
+    //}    
+    //LeaveCriticalSection(&m_csFuncCallback);
+}
+
+
+void Camera6467_plate::SendResultByCallback_ex2(CameraResult* pCamResult)
+{
+    if (pCamResult == NULL)
+    {
+        return;
+    }
     EnterCriticalSection(&m_csFuncCallback);
-    if ( NULL != g_pFunc_Result )
+    if (NULL != g_pFunc_Result)
     {
         //LeaveCriticalSection(&m_csFuncCallback);
         WriteFormatLog("SendResultByCallback, begin call back func %p.", g_pFunc_Result);
 
         NET_DVR_PLATE_RESULT  plateResult;
+		plateResult.dwBinPicLen = 0;
+		plateResult.dwPicLen = 0;
+		plateResult.dwPicPlateLen = 0;
+		plateResult.pBuffer1 = NULL;
+		plateResult.pBuffer2 = NULL;
+		plateResult.pBuffer3 = NULL;
         EnterCriticalSection(&m_csResult);
-        plateResult.byDriveChan = m_BufferResult->iLaneNo;
-        plateResult.dwPicLen = m_BufferResult->CIMG_LastSnapshot.dwImgSize;
-        plateResult.dwPicPlateLen = m_BufferResult->CIMG_PlateImage.dwImgSize;
-        plateResult.dwBinPicLen = m_BufferResult->CIMG_BinImage.dwImgSize;
-        plateResult.pBuffer1 = m_BufferResult->CIMG_LastSnapshot.pbImgData;
-        plateResult.pBuffer2 = m_BufferResult->CIMG_PlateImage.pbImgData;
-        plateResult.pBuffer3 = m_BufferResult->CIMG_BinImage.pbImgData;
+        plateResult.byDriveChan = pCamResult->iLaneNo;
+		if (pCamResult->CIMG_LastSnapshot.dwImgSize != 0)
+		{
+			plateResult.dwPicLen = pCamResult->CIMG_LastSnapshot.dwImgSize;
+			plateResult.pBuffer1 = pCamResult->CIMG_LastSnapshot.pbImgData;
+		}
+		else if (pCamResult->CIMG_BestSnapshot.dwImgSize != 0)
+		{
+			plateResult.dwPicLen = pCamResult->CIMG_BestSnapshot.dwImgSize;
+			plateResult.pBuffer1 = pCamResult->CIMG_BestSnapshot.pbImgData;
+		}
+		else if (pCamResult->CIMG_BeginCapture.dwImgSize != 0)
+		{
+			plateResult.dwPicLen = pCamResult->CIMG_BeginCapture.dwImgSize;
+			plateResult.pBuffer1 = pCamResult->CIMG_BeginCapture.pbImgData;
+		}
+
+        plateResult.dwPicPlateLen = pCamResult->CIMG_PlateImage.dwImgSize;
+        plateResult.dwBinPicLen = pCamResult->CIMG_BinImage.dwImgSize;
+
+        plateResult.pBuffer2 = pCamResult->CIMG_PlateImage.pbImgData;
+        plateResult.pBuffer3 = pCamResult->CIMG_BinImage.pbImgData;
         memset(plateResult.sLicense, '\0', sizeof(plateResult.sLicense));
-        if (NULL != strstr(m_BufferResult->chPlateNO, "ÎÞ"))
+        if (NULL != strstr(pCamResult->chPlateNO, "ÎÞ"))
         {
             sprintf_s(plateResult.sLicense, sizeof(plateResult.sLicense), "Î´¼ì²â");
         }
         else
         {
-            sprintf_s(plateResult.sLicense, sizeof(plateResult.sLicense), "%s", m_BufferResult->chPlateNO);
+            sprintf_s(plateResult.sLicense, sizeof(plateResult.sLicense), "%s", pCamResult->chPlateNO);
         }
+		sprintf_s(plateResult.vlpId, sizeof(plateResult.vlpId), "%s%03lu", pCamResult->chPlateTime, pCamResult->dwCarID < 100 ? pCamResult->dwCarID : pCamResult->dwCarID % 100);
 
-        WriteFormatLog("begin call back.", g_pFunc_Result);
-        ((MessageCallback)g_pFunc_Result)(0, (char*)(&plateResult));
-        WriteFormatLog("finish call back.", g_pFunc_Result);
+        WriteFormatLog("begin call back %p.", g_pFunc_Result);
+        ((CBFun_GetRegResult)g_pFunc_Result)(0, &plateResult);
+        WriteFormatLog("finish call back %p.", g_pFunc_Result);
 
         LeaveCriticalSection(&m_csResult);
 
         WriteFormatLog("SendResultByCallback, finish.");
     }
     else
-    {        
+    {
         WriteFormatLog("SendResultByCallback, the call back function is NULL.");
-    }    
+    }
     LeaveCriticalSection(&m_csFuncCallback);
 }
 
+void Camera6467_plate::SendResultExtraInfoByCallback(CameraResult* CamResult, int vlpExtraType)
+{
+    WriteFormatLog("SendResultExtraInfoByCallback:: CamResult = %p, vlpExtraType = %d", CamResult, vlpExtraType);
+
+    EnterCriticalSection(&m_csFuncCallback);
+    if (NULL != g_pFunc_ResultExtraInfo)
+    {
+        LeaveCriticalSection(&m_csFuncCallback);
+
+        T_EXTRAVLPINFO extrainfo;
+        memset(&extrainfo, 0, sizeof(T_EXTRAVLPINFO));
+		sprintf_s(extrainfo.vlpId, sizeof(extrainfo.vlpId), "%s%03lu", CamResult->chPlateTime, CamResult->dwCarID < 100 ? CamResult->dwCarID : CamResult->dwCarID % 100);
+        //extrainfo.vlpInfoSize = sizeof(T_EXTRAVLPINFO);
+        switch (vlpExtraType)
+        {
+        case EXTRAINFO_TYPE_SIDE_IMAGE:
+            extrainfo.vlpExtraType = EXTRAINFO_TYPE_SIDE_IMAGE;
+            extrainfo.imageLength = CamResult->CIMG_BestCapture.dwImgSize;
+            extrainfo.image = CamResult->CIMG_BestCapture.pbImgData;
+            break;
+        case EXTRAINFO_TYPE_TAIL_IMAGE:
+            extrainfo.vlpExtraType = EXTRAINFO_TYPE_TAIL_IMAGE;
+            extrainfo.imageLength = CamResult->CIMG_LastCapture.dwImgSize;
+            extrainfo.image = CamResult->CIMG_LastCapture.pbImgData;
+            break;
+        case EXTRAINFO_TYPE_FRONT_APPENDINFO:
+            extrainfo.vlpExtraType = EXTRAINFO_TYPE_FRONT_APPENDINFO;
+            extrainfo.imageLength = strlen(CamResult->pcAppendInfo) + 1;
+            extrainfo.image = (unsigned char*)CamResult->pcAppendInfo;
+            break;
+        default:
+            break;
+        }
+
+        WriteFormatLog("extrainfo.vlpId = %s.", extrainfo.vlpId);
+        //WriteFormatLog("extrainfo.vlpInfoSize = %d.", extrainfo.vlpInfoSize);
+        WriteFormatLog("extrainfo.vlpExtraType = %d.", extrainfo.vlpExtraType);
+        WriteFormatLog("extrainfo.imageLength = %u.", extrainfo.imageLength);
+        WriteFormatLog("extrainfo.image = %p.", extrainfo.image);
+
+        WriteFormatLog("begin to call ExtraInfo Callback.");
+        ((CBFun_GetExtraRegResult)g_pFunc_ResultExtraInfo)(GetLoginID(), &extrainfo);
+        WriteFormatLog("finish  call ExtraInfo Callback.");
+    }
+    else
+    {
+        LeaveCriticalSection(&m_csFuncCallback);
+        WriteFormatLog("ExtraInfo Callback is NULL.");
+    }
+}
 
 #ifdef  USE_VIDEO
 int Camera6467_plate::StartPlayVideo(int iChannelID, HANDLE& playHandle, const HWND winHandle)
@@ -781,6 +904,91 @@ DWORD Camera6467_plate::getResultWaitTime()
 }
 
 
+unsigned int Camera6467_plate::SendResultThreadFunc()
+{
+    WriteFormatLog("SendResultThreadFunc begin.");
+
+    typedef struct _SendFlag
+    {
+        unsigned long dwLastCarID;
+        bool bSendFront;
+        bool bSendSide;
+        bool bSendTail;
+        bool bSendAppendInfo;
+
+        _SendFlag()
+        {
+            dwLastCarID = 0;
+
+            bSendFront = false;
+            bSendSide = false;
+            bSendTail = false;
+            bSendAppendInfo = false;
+        }
+    }SendFlag;
+
+    SendFlag lastSendFlag;
+    while (!GetCheckThreadExit())
+    {
+        Sleep(100);
+        if (!m_resultList.empty())
+        {
+            CameraResult* pResult = NULL;
+            m_resultList.front(pResult);
+            if (NULL == pResult)
+            {
+                continue;
+            }
+
+            if (lastSendFlag.dwLastCarID != pResult->dwCarID)
+            {
+                memset(&lastSendFlag, 0, sizeof(SendFlag));
+                lastSendFlag.dwLastCarID = pResult->dwCarID;
+            }
+
+            if (!lastSendFlag.bSendFront)
+            {
+                SendResultByCallback_ex2(pResult);
+                lastSendFlag.bSendFront = true;
+            }
+            //if (!lastSendFlag.bSendSide
+            //    && pResult->CIMG_BestCapture.dwImgSize > 0)
+            //{
+            //    SendResultExtraInfoByCallback(pResult, EXTRAINFO_TYPE_SIDE_IMAGE);
+            //    lastSendFlag.bSendSide = true;
+            //}
+            //if (!lastSendFlag.bSendTail
+            //    && pResult->CIMG_LastCapture.dwImgSize > 0)
+            //{
+            //    SendResultExtraInfoByCallback(pResult, EXTRAINFO_TYPE_TAIL_IMAGE);
+            //    lastSendFlag.bSendTail = true;
+            //}
+
+            if (pResult->CIMG_BestCapture.dwImgSize > 0)
+            {
+                SendResultExtraInfoByCallback(pResult, EXTRAINFO_TYPE_SIDE_IMAGE);
+                lastSendFlag.bSendSide = true;
+            }
+            if (pResult->CIMG_LastCapture.dwImgSize > 0)
+            {
+                SendResultExtraInfoByCallback(pResult, EXTRAINFO_TYPE_TAIL_IMAGE);
+                lastSendFlag.bSendTail = true;
+            }
+            if (!lastSendFlag.bSendAppendInfo)
+            {
+                SendResultExtraInfoByCallback(pResult, EXTRAINFO_TYPE_FRONT_APPENDINFO);
+                lastSendFlag.bSendAppendInfo = true;
+            }
+
+            m_resultList.DeleteToPosition(0);
+
+            pResult = NULL;
+        }
+    }
+    WriteFormatLog("SendResultThreadFunc finish.");
+    return 0;
+}
+
 int Camera6467_plate::RecordInfoBegin(DWORD dwCarID)
 {
     char chLog[MAX_PATH] = { 0 };
@@ -818,40 +1026,71 @@ int Camera6467_plate::RecordInfoEnd(DWORD dwCarID)
         WriteFormatLog("RecordInfoEnd, dwCarID = %lu", dwCarID);
         CHECK_ARG(m_CameraResult);
 
-        //CTime tm(m_CameraResult->dw64TimeMS / 1000);
-        //SaveModeInfo TempSaveModeInfo;
-        //sprintf_s(TempSaveModeInfo.chBeginTime, sizeof(TempSaveModeInfo.chBeginTime),
-        //    "%d.%02d.%02d_%02d",
-        //    tm.GetYear(),
-        //    tm.GetMonth(),
-        //    tm.GetDay(),
-        //    tm.GetHour());
-        //WriteHistoryInfo(TempSaveModeInfo);
-
         if (dwCarID == m_CameraResult->dwCarID)
         {
-            EnterCriticalSection(&m_csResult);
-            if (NULL != m_BufferResult)
+			if (m_dwLastCarID != m_CameraResult->dwCarID)
+			{
+				if (strcmp(m_lastplate.c_str(), m_CameraResult->chPlateNO) == 0)
+				{
+					WriteFormatLog("current car ID  %lu, plate = %s, last carID %lu,plate = %s .", dwCarID, m_CameraResult->chPlateNO, m_dwLastCarID, m_lastplate.c_str());
+					return 0;
+				}
+			}
+            if (CheckIfBackUpVehicle(m_CameraResult))
             {
-                delete m_BufferResult;
-                m_BufferResult = NULL;
+                WriteFormatLog("current result is reversing car, drop this result.");
             }
-            m_BufferResult = new CameraResult(*m_CameraResult);
-            m_bResultComplete = true;
-            LeaveCriticalSection(&m_csResult);
+            else
+            {
+                if (CheckIfSuperLength(m_CameraResult))
+                {
+                    WriteFormatLog("current length %f is larger than max length %d, clear list first.", m_CameraResult->fVehLenth, m_iSuperLenth);
+                    m_resultList.ClearALLResult();
+                }
+                WriteFormatLog("push one result to list, current list plate NO:\n");
+                if (!m_resultList.empty())
+                {
+                    BaseCamera::WriteLog(m_resultList.GetAllPlateString().c_str());
+                }
+                else
+                {
+                    WriteFormatLog("list is empty.");
+                }
+                if (m_resultList.size() >= MAX_VFR_LENGTH)
+                {
+                    WriteFormatLog("current VFR result length is larger than %d, remove the first one.", MAX_VFR_LENGTH);
+                    CameraResult* pTempResult = NULL;
+                    m_resultList.front(pTempResult);
+                    m_resultList.pop_front();
+                    SAFE_DELETE_OBJ(pTempResult);
+                }
+
+                //std::shared_ptr<CameraResult> pResult(m_pResult);
+                //if (m_dwLastCarID == dwCarID)
+                //{
+                //    WriteFormatLog("current car ID  %lu is  same wit last carID %lu, replace the last one.", dwCarID, m_dwLastCarID);
+                //    CameraResult* pTempResult = NULL;
+                //    m_resultList.back(pTempResult);
+                //    m_resultList.pop_back();
+                //    SAFE_DELETE_OBJ(pTempResult);
+                //}
+                //else
+                {
+                    m_dwLastCarID = dwCarID;
+					m_lastplate = m_CameraResult->chPlateNO;
+                }
+                m_resultList.push_back(m_CameraResult);
+                m_CameraResult = NULL;
+                WriteFormatLog("after push, list plate NO:\n");
+                BaseCamera::WriteLog(m_resultList.GetAllPlateString().c_str());
+            }
 
             if (NULL != m_hWnd)
             {
                 WriteLog("PostMessage");
-                //::PostMessage(*((HWND*)m_hWnd),m_iMsg, 1, 0);
-                ::PostMessage(m_hWnd, m_iMsg, (WPARAM)1, 0);
+                ::PostMessage(*((HWND*)m_hWnd), m_iMsg, 1, 0);
+                //::PostMessage((HWND)m_hMsgHanldle, m_iResultMsg, (WPARAM)1, 0);
             }
-
-            //char chFileName[256] = { 0 };
-            //sprintf_s(chFileName, sizeof(chFileName), ".\\Pic.jpg");
-            //Tool_SaveFileToPath(chFileName, m_BufferResult->CIMG_LastSnapshot.pbImgData, m_BufferResult->CIMG_LastSnapshot.dwImgSize);
-
-            SendResultByCallback();
         }
         else
         {
@@ -965,11 +1204,15 @@ int Camera6467_plate::RecordInfoBigImage(DWORD dwCarID,
     }
     char chLog[MAX_PATH] = { 0 };
     sprintf_s(chLog, sizeof(chLog), "RecordInfoBigImage -begin- dwCarID = %ld, dwRecordType = %#x£¬ ImgType=%d, size = %ld",
-        dwCarID, 
-        dwRecordType, 
+        dwCarID,
+        dwRecordType,
         wImgType,
         dwImgDataLen);
     WriteLog(chLog);
+
+    //char chFileName[256] = {0};
+    //sprintf_s(chFileName, sizeof(chFileName), "G:\\GitHub\\sc_sccp\\SCCP\\Debug\\%ld.jpg", GetTickCount());
+    //Tool_SaveFileToPath(chFileName, pbPicData, dwImgDataLen);
 
     //if (dwCarID == m_dwLastCarID)
     //{
@@ -1355,6 +1598,14 @@ void Camera6467_plate::SetResultCallback(void* funcResult, void* pUser)
     LeaveCriticalSection(&m_csFuncCallback);
 }
 
+void Camera6467_plate::SetResultExtraInfoCallback(void* pFunc, void* pUserData)
+{
+    EnterCriticalSection(&m_csFuncCallback);
+    g_pFunc_ResultExtraInfo = pFunc;
+    g_pUserData_ExtraInfo = pUserData;
+    LeaveCriticalSection(&m_csFuncCallback);
+}
+
 void Camera6467_plate::SetConnectStatus_Callback(void* func, void* pUser, int TimeInterval)
 {
     EnterCriticalSection(&m_csFuncCallback);
@@ -1630,6 +1881,8 @@ void Camera6467_plate::CheckStatus()
     while (!GetCheckThreadExit())
     {
         Sleep(50);
+		if (!GetReConStatus())
+			continue;
         iCurrentTick = GetTickCount();
         int iTimeInterval = GetTimeInterval();
         if ((iCurrentTick - iLastTick) >= (iTimeInterval * 1000))

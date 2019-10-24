@@ -22,6 +22,7 @@ public:
     void SendConnetStateMsg(bool isConnect);
 
     void SetResultCallback(void* funcResult, void* pUser);
+    void SetResultExtraInfoCallback(void* pFunc, void* pUserData);
 
     bool GetResultComplete();
     void SetResultComplete(bool bfinish);
@@ -45,6 +46,8 @@ private:
     void ReadConfig();
 
     void SendResultByCallback();
+    void SendResultByCallback_ex2(CameraResult* CamResult);
+    void SendResultExtraInfoByCallback(CameraResult* CamResult, int vlpExtraType);
 
 #ifdef USE_VIDEO
     int StartPlayVideo(int iChannelID, HANDLE& playHandle, const HWND winHandle);
@@ -67,6 +70,7 @@ private:
     int m_iWaitVfrTimeOut;
 
     DWORD m_dwLastCarID;
+	std::string m_lastplate;
 
     bool m_bResultComplete;
     bool m_bJpegComplete;
@@ -108,6 +112,7 @@ private:
     HANDLE m_hPlaySecondh264;
 
     HANDLE m_hStatusCheckThread;			//状态检测线程
+    HANDLE m_hSendResultThread;			//结果发送线程
 
     ResultListManager m_resultList;
 

@@ -40,7 +40,9 @@ m_bLogEnable(true),
 m_bSynTime(true),
 m_bDeviceTypeNew(false),
 m_bFirstH264Frame(true),
-m_strIP("")
+m_strIP(""),
+m_IsReCon(false),
+m_video(0)
 {
     //合成图片初始化
     Tool_GetEncoderClsid(L"image/jpeg", &m_jpgClsid);
@@ -66,7 +68,9 @@ m_bLogEnable(true),
 m_bSynTime(true),
 m_bDeviceTypeNew(false),
 m_bFirstH264Frame(true),
-m_strIP(chIP)
+m_strIP(chIP),
+m_IsReCon(false),
+m_video(0)
 {
     //合成图片初始化
     Tool_GetEncoderClsid(L"image/jpeg", &m_jpgClsid);
@@ -171,11 +175,18 @@ int BaseCamera::handleH264Frame(DWORD dwVedioFlag,
     {
         isHistory = 1;
     }
-    //char chLog[256] = {0};
-    //sprintf_s(chLog, sizeof(chLog), "handleH264Frame:: dw64TimeMS =%I64d , currentTicket =%I64d \n", dw64TimeMS, GetTickCount64());
-    //OutputDebugStringA(chLog);
+    char chLog[256] = {0};
+    sprintf_s(chLog, sizeof(chLog), "handleH264Frame:: dw64TimeMS =%I64d , currentTicket =%I64d \n", dw64TimeMS, GetTickCount64());
+    OutputDebugStringA(chLog);
     //return SaveH264Frame(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, dw64TimeMS, isHistory);
-    CustH264Struct* pH264Data = new CustH264Struct(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, isHistory, GetTickCount64());
+	m_video++;
+	if (m_video > 400)
+		m_video = 0;
+
+	m_curH264Ms = dw64TimeMS;
+
+	CustH264Struct* pH264Data = new CustH264Struct(pbVideoData, dwVideoDataLen, dwWidth, dwHeight, isIFrame, isHistory, dw64TimeMS/* GetTickCount64()*/, m_video);
+	//pH264Data->index = m_video;
     if (!m_h264Saver.addDataStruct(pH264Data))
     {
         SAFE_DELETE_OBJ(pH264Data);
@@ -493,14 +504,20 @@ int BaseCamera::ConnectToCamera()
 
     WriteLog(chCommand);
 
-    if (!SetH264Callback(0, 0, 0, H264_RECV_FLAG_REALTIME))
-    {
-        WriteLog("ConnectToCamera:: SetH264Callback failed.");
-    }
-    else
-    {
-        WriteLog("ConnectToCamera:: SetH264Callback success.");
-    }
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (!SetH264Callback(0, 0, 0, H264_RECV_FLAG_REALTIME))
+		{
+			WriteLog("ConnectToCamera:: SetH264Callback failed.");
+			Sleep(100);
+		}
+		else
+		{
+			WriteLog("ConnectToCamera:: SetH264Callback success.");
+			break;
+		}
+	}
 
     if ((HVAPI_SetCallBackEx(m_hHvHandle, (PVOID)RecordInfoBeginCallBack, this, 0, CALLBACK_TYPE_RECORD_INFOBEGIN, NULL) != S_OK) ||
         (HVAPI_SetCallBackEx(m_hHvHandle, (PVOID)RecordInfoEndCallBack, this, 0, CALLBACK_TYPE_RECORD_INFOEND, NULL) != S_OK) ||
@@ -1760,7 +1777,12 @@ bool BaseCamera::StartToSaveAviFile(int iStreamID, const char* fileName, DWORD64
         WriteFormatLog("StartToSaveAviFile, m_hHvHandle == NULL, failed.");
         return false;
     }
-    m_h264Saver.StartSaveH264(beginTimeTick, fileName);
+	
+	DWORD64 timetick = m_curH264Ms - beginTimeTick;
+	if (timetick < 0)
+		timetick = 0;
+
+	m_h264Saver.StartSaveH264(timetick, fileName);
 }
 
 bool BaseCamera::StopSaveAviFile(int iStreamID)

@@ -25,7 +25,7 @@ SCCP_API BOOL DLL_SPEC SCLS_Settime(LONG lHandle, NET_DVR_TIME  CurTime);
 *相机初始化
 *不需要此步骤的，直接返回true
 ************/
-SCCP_API BOOL DLL_SPEC SCLS_DVR_Init();
+SCCP_API BOOL DLL_SPEC SCLS_DVR_Init(int nPreRecordTime);
 
 /*********
 *相机登录，此函数，完成相机的登录、连接功能
@@ -43,7 +43,20 @@ SCCP_API LONG DLL_SPEC SCLS_DVR_Login(char *sIP, WORD wPort, char *sUserName, ch
 *LONG lHandle    相机连接的lHandle
 *返回值 BOOL   true 成功， false 失败
 *********/
-SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(MessageCallback fMessCallBack, LONG lHandle);
+//SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(MessageCallback fMessCallBack, LONG lHandle);
+SCCP_API BOOL DLL_SPEC SCLS_DVR_SetDVRMessCallBack(CBFun_GetRegResult fMessCallBack, LONG lHandle);
+
+//************************************
+// Method:        SCLS_DVR_SetExtraResultCallBack
+// Describe:       设置额外识别结果回调
+// FullName:      SCLS_DVR_SetExtraResultCallBack
+// Access:          public 
+// Returns:        SCCP_API BOOL DLL_SPEC
+// Returns Describe:         true 成功， false 失败
+// Parameter:    CBFun_GetExtraRegResult pFunc * fMessCallBack      ;回调函数名称
+// Parameter:    LONG lHandle                                                           ;相机连接的lHandle
+//************************************
+SCCP_API BOOL DLL_SPEC SCLS_DVR_SetExtraResultCallBack(CBFun_GetExtraRegResult pFunc, LONG lHandle);
 
 /*********
 *相机退出函数

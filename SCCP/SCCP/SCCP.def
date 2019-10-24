@@ -15,3 +15,4 @@ SCLS_DVR_RealPlay
 SCLS_DVR_StopRealPlay
 SCLS_DVR_StartRecord
 SCLS_DVR_StopRecord
+SCLS_DVR_SetExtraResultCallBack

@@ -11,7 +11,8 @@ public:
     long iHeight,
     long isIFrame,
     long IsHistory,
-    long long FrameTime);
+	long long FrameTime,
+	int nindex);
 
     ~CustH264Struct();
 
@@ -23,6 +24,7 @@ public:
     long m_isIFrame;    
     long m_isHistory;
     long long m_llFrameTime;
+	int index;
 };
 
 

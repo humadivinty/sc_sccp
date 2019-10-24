@@ -153,6 +153,9 @@ public:
     bool GetDeviceTime(DeviceTime& deviceTime);
     bool GetStreamLength(IStream* pStream, ULARGE_INTEGER* puliLenth);
 
+	void SetReConStatus(bool flag){ m_IsReCon = flag; };
+	bool GetReConStatus(){ return m_IsReCon; };
+
     int ConnectToCamera();
     void	InterruptionConnection();
     bool DisConnectCamera();
@@ -221,6 +224,11 @@ protected:
     int m_iCompressQuality;
     int m_iDirection;
     int m_iIndex;
+
+	bool m_IsReCon;
+
+	int m_video;
+	DWORD64 m_curH264Ms;
 
     bool m_bLogEnable;
     bool m_bSynTime;

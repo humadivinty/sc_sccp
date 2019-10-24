@@ -24,7 +24,7 @@
 #include<ctime>
 #include<atltime.h>
 
-#define DLL_VERSION "2019082701"
+#define DLL_VERSION "2019082801"
 #define INI_FILE_NAME "\\XLW_SCCP.ini"
 #define DLL_LOG_NAME "XLW_SCCP.log"
 

@@ -1089,7 +1089,7 @@ void Tool_WriteLog(const char* chlog)
     fopen_s(&file, chLogFileName, "a+");
     if (file)
     {
-        fprintf(file, "%04d-%02d-%02d %02d:%02d:%02d:%03d [DLLVersion:%s] : %s\n",
+        fprintf(file, "%04d-%02d-%02d %02d:%02d:%02d:%03d [DLLVersion:%s] [threadID: %lu] : %s\n",
             systime.wYear,
             systime.wMonth,
             systime.wDay,
@@ -1098,6 +1098,7 @@ void Tool_WriteLog(const char* chlog)
             systime.wSecond,
             systime.wMilliseconds,
             DLL_VERSION,
+            GetCurrentThreadId(),
             chlog);
         fclose(file);
         file = NULL;
